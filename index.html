@@ -132,7 +132,9 @@ function chips(){
 $('menu').onclick=()=>{chips();$('mp').style.display='block'};
 $('mclose').onclick=()=>$('mp').style.display='none';
 $('b1').onclick=()=>setStyle('dark');$('b2').onclick=()=>setStyle('std');
-$('exp').onclick=()=>{const t=JSON.stringify(cams,null,1);
+$('exp').onclick=async()=>{const t=JSON.stringify(cams,null,1);
+ try{const f=new File([t],'cameras.json',{type:'application/json'});
+  if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:'Caméras'});return}}catch(e){if(e.name==='AbortError')return}
  if(navigator.share)navigator.share({title:'Caméras',text:t}).catch(()=>{});else prompt('Copiez vos données :',t)};
 $('imp').onclick=()=>$('file').click();
 $('file').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
@@ -140,7 +142,7 @@ $('file').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileRe
   a.forEach(c=>{if(c&&typeof c.lat==='number'&&typeof c.lon==='number'&&!cams.some(x=>x.lat===c.lat&&x.lon===c.lon))cams.push(c)});
   store();draw();alert('Import terminé.')}catch(x){alert('Fichier non valide.')}};r.readAsText(f)};
 
-const arrowIcon=()=>L.divIcon({className:'',iconSize:[46,46],iconAnchor:[23,23],html:'<div id="arr" style="width:46px;height:46px;transform:rotate('+heading+'deg);filter:drop-shadow(0 0 8px #3b9cff)"><svg viewBox="0 0 44 44"><path d="M22 3 L34 36 L22 29 L10 36 Z" fill="#3b9cff" stroke="#fff" stroke-width="3" stroke-linejoin="round"/></svg></div>'});
+const arrowIcon=()=>L.divIcon({className:'',iconSize:[30,30],iconAnchor:[15,15],html:'<div id="arr" style="width:30px;height:30px;transform:rotate('+heading+'deg);filter:drop-shadow(0 0 8px #3b9cff)"><svg viewBox="0 0 44 44"><path d="M22 3 L34 36 L22 29 L10 36 Z" fill="#3b9cff" stroke="#fff" stroke-width="3" stroke-linejoin="round"/></svg></div>'});
 function setMe(){
  if(!mePos)return;
  if(!meMark)meMark=L.marker(mePos,{icon:arrowIcon(),interactive:false,zIndexOffset:1000}).addTo(map);
