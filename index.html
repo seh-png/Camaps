@@ -9,6 +9,7 @@
 :root{--g:rgba(14,18,27,.72);--bd:rgba(255,255,255,.14);--fg:#eef1f7;--mut:#9aa4b8;--ac:#ff6b35}
 html,body{height:100%;margin:0;background:#0b0e14;color:var(--fg);font:16px -apple-system,system-ui,sans-serif}
 #map{position:absolute;inset:0;background:#0b0e14}
+.night .leaflet-tile-pane{filter:invert(1) hue-rotate(200deg) brightness(.9) contrast(.95) saturate(.55)}
 .leaflet-container{font:inherit}.leaflet-control-attribution{background:#0008!important;color:#aaa!important;font-size:10px}.leaflet-control-attribution a{color:#ccc!important}
 .glass{background:var(--g);backdrop-filter:blur(16px) saturate(1.4);-webkit-backdrop-filter:blur(16px) saturate(1.4);border:1px solid var(--bd);box-shadow:0 8px 30px #0008}
 .bar{position:absolute;z-index:1000;left:10px;right:10px;top:calc(env(safe-area-inset-top,0px) + 10px);display:flex;gap:8px;align-items:center}
@@ -68,10 +69,10 @@ const $=id=>document.getElementById(id);
 const COL={'Fixe':'#ff6b35','Dôme (360°)':'#22d3ee','Lecture de plaques':'#facc15','Autre':'#a78bfa'};
 const col=t=>COL[t]||'#ff6b35';
 const map=L.map('map',{zoomControl:false,attributionControl:true}).setView([48.8566,2.3522],14);
-const dark=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:20,subdomains:'abcd',attribution:'© OpenStreetMap © CARTO'});
-const std=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'});
-let style=localStorage.getItem('style')||'dark';(style==='dark'?dark:std).addTo(map);
-function setStyle(s){style=s;try{localStorage.setItem('style',s)}catch(e){}map.removeLayer(s==='dark'?std:dark);(s==='dark'?dark:std).addTo(map)}
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+let style=localStorage.getItem('style')||'dark';
+function setStyle(s){style=s;try{localStorage.setItem('style',s)}catch(e){}$('map').classList.toggle('night',s==='dark')}
+setStyle(style);
 let cams=[];try{cams=JSON.parse(localStorage.getItem('cams')||'[]')}catch(e){}
 let hidden=new Set();try{hidden=new Set(JSON.parse(localStorage.getItem('hidden')||'[]'))}catch(e){}
 const store=()=>{try{localStorage.setItem('cams',JSON.stringify(cams));localStorage.setItem('hidden',JSON.stringify([...hidden]))}catch(e){}};
