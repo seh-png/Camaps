@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><title>Carte des caméras</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+html,body{height:100%;margin:0;font:16px -apple-system,system-ui,sans-serif}
+#map{position:absolute;inset:0}
+.bar{position:absolute;z-index:1000;left:10px;right:10px;top:calc(env(safe-area-inset-top,0px) + 10px);display:flex;gap:8px}
+.bar button,#sheet button{font:inherit;padding:12px 14px;border-radius:12px;border:0;background:#fff;box-shadow:0 1px 6px #0004;flex:1}
+.bar .p,#sheet .p{background:#d9480f;color:#fff;font-weight:600}
+#hint{position:absolute;z-index:1000;left:10px;right:10px;top:calc(env(safe-area-inset-top,0px) + 66px);background:#000c;color:#fff;padding:10px;border-radius:10px;display:none;text-align:center}
+#sheet{position:absolute;z-index:1001;left:0;right:0;bottom:0;background:#fff;padding:14px 16px calc(env(safe-area-inset-bottom,0px) + 14px);border-radius:18px 18px 0 0;box-shadow:0 -2px 12px #0004;display:none}
+#sheet label{display:flex;justify-content:space-between;margin-top:8px;font-size:14px;color:#444}
+#sheet input[type=range],#sheet select{width:100%;margin:4px 0}
+#sheet select{font:inherit;padding:8px}
+.r{display:flex;gap:8px;margin-top:10px}
+#sheet .d{color:#c92a2a}
+</style></head><body>
+<div id="map"></div>
+<div class="bar"><button class="p" id="add">+ Caméra</button><button id="loc">📍 Moi</button><button id="exp">Exporter</button></div>
+<div id="hint">Touchez la carte à l'endroit de la caméra</div>
+<div id="sheet">
+<b id="ttl">Nouvelle caméra</b>
+<label>Type<span></span></label>
+<select id="type"><option>Fixe</option><option>Dôme (360°)</option><option>Lecture de plaques</option><option>Autre</option></select>
+<label>Direction <span id="vd"></span></label><input type="range" id="dir" min="0" max="359" value="0">
+<label>Ouverture <span id="va"></span></label><input type="range" id="fov" min="20" max="360" value="90">
+<label>Portée <span id="vr"></span></label><input type="range" id="rng" min="5" max="120" value="30">
+<div style="font-size:12px;color:#777;margin-top:4px">Direction : 0° = nord, 90° = est, 180° = sud, 270° = ouest.</div>
+<div class="r"><button class="p" id="save">Enregistrer</button><button id="cancel">Annuler</button><button class="d" id="del" style="display:none">Supprimer</button></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const map=L.map('map',{zoomControl:false}).setView([48.8566,2.3522],13);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+let cams=[];try{cams=JSON.parse(localStorage.getItem('cams')||'[]')}catch(e){}
+const save=()=>{try{localStorage.setItem('cams',JSON.stringify(cams))}catch(e){}};
+const layer=L.layerGroup().addTo(map);
+let placing=false,cur=null,prev=null,meMark=null;
+
+function cone(c){
+ const pts=[[c.lat,c.lon]],full=c.fov>=360,n=Math.max(4,Math.round(c.fov/6));
+ for(let i=0;i<=n;i++){
+  const b=(c.dir-c.fov/2+c.fov*i/n)*Math.PI/180;
+  pts.push([c.lat+c.rng*Math.cos(b)/111320,c.lon+c.rng*Math.sin(b)/(111320*Math.cos(c.lat*Math.PI/180))]);
+ }
+ return full?L.circle([c.lat,c.lon],{radius:c.rng,color:'#d9480f',weight:1,fillOpacity:.2}):L.polygon(pts,{color:'#d9480f',weight:1,fillOpacity:.25});
+}
+function draw(){
+ layer.clearLayers();
+ cams.forEach(c=>{
+  cone(c).addTo(layer);
+  L.circleMarker([c.lat,c.lon],{radius:8,color:'#fff',weight:2,fillColor:'#d9480f',fillOpacity:1}).addTo(layer).on('click',()=>edit(c));
+ });
+}
+function vals(){return{type:$('type').value,dir:+$('dir').value,fov:+$('fov').value,rng:+$('rng').value}}
+function preview(){
+ const v=vals();$('vd').textContent=v.dir+'°';$('va').textContent=v.fov+'°';$('vr').textContent=v.rng+' m';
+ if(prev)map.removeLayer(prev);
+ if(cur)prev=cone({...cur,...v}).addTo(map);
+}
+['dir','fov','rng'].forEach(i=>$(i).oninput=preview);
+function open(c,isNew){
+ cur=c;placing=false;$('hint').style.display='none';
+ $('ttl').textContent=isNew?'Nouvelle caméra':'Modifier la caméra';
+ $('type').value=c.type||'Fixe';$('dir').value=c.dir??0;$('fov').value=c.fov??90;$('rng').value=c.rng??30;
+ $('del').style.display=isNew?'none':'block';$('sheet').style.display='block';
+ if(!isNew){layer.clearLayers();cams.filter(x=>x!==c).forEach(x=>{cone(x).addTo(layer);L.circleMarker([x.lat,x.lon],{radius:8,color:'#fff',weight:2,fillColor:'#d9480f',fillOpacity:1}).addTo(layer)})}
+ preview();
+}
+function edit(c){open(c,false)}
+function close(){$('sheet').style.display='none';if(prev){map.removeLayer(prev);prev=null}cur=null;draw()}
+$('add').onclick=()=>{placing=true;$('hint').style.display='block'};
+map.on('click',e=>{if(!placing)return;open({lat:e.latlng.lat,lon:e.latlng.lng},true)});
+$('save').onclick=()=>{const v=vals();Object.assign(cur,v);if(!cams.includes(cur))cams.push(cur);save();close()};
+$('cancel').onclick=close;
+$('del').onclick=()=>{if(confirm('Supprimer cette caméra ?')){cams=cams.filter(x=>x!==cur);save();close()}};
+$('loc').onclick=()=>{
+ map.locate({setView:true,maxZoom:18,enableHighAccuracy:true});
+};
+map.on('locationfound',e=>{if(meMark)map.removeLayer(meMark);meMark=L.circleMarker(e.latlng,{radius:8,color:'#fff',weight:3,fillColor:'#1971c2',fillOpacity:1}).addTo(map)});
+map.on('locationerror',()=>alert('Autorisez la localisation dans Safari.'));
+$('exp').onclick=()=>{
+ const t=JSON.stringify(cams,null,1);
+ if(navigator.share)navigator.share({title:'Caméras',text:t}).catch(()=>{});
+ else prompt('Copiez vos données :',t);
+};
+draw();
+if(cams.length)map.fitBounds(cams.map(c=>[c.lat,c.lon]),{maxZoom:17,padding:[40,40]});
+else map.locate({setView:true,maxZoom:17});
+</script></body></html>
